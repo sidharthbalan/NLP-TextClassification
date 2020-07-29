@@ -30,6 +30,7 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from collections import Counter
 
 stemmer = WordNetLemmatizer()
 classifier = RandomForestClassifier(n_estimators=1000, random_state=0)
@@ -50,21 +51,9 @@ def download(path):
     """Serve a file from the upload directory."""
     return send_from_directory(UPLOAD_DIRECTORY, path, as_attachment=True)
 
-# Load data
-df = pd.read_csv('data/stockdata2.csv', index_col=0, parse_dates=True)
-df.index = pd.to_datetime(df['Date'])
-
 # Initialize the app
 app = dash.Dash(__name__)
 app.config.suppress_callback_exceptions = True
-
-
-def get_options(list_stocks):
-    dict_list = []
-    for i in list_stocks:
-        dict_list.append({'label': i, 'value': i})
-
-    return dict_list
 
 
 app.layout = html.Div(
@@ -226,7 +215,7 @@ def plotgraph(topics, counts):
         autosize=False,
         title={'text': 'Freq Dist', 'font': {'color': 'white'}, 'x': 0.5},
         yaxis=dict(
-        title_text="Y-axis Title",
+        title_text="Count",
         ticktext=topics,
         tickmode="array",
         titlefont=dict(size=30),
@@ -236,15 +225,18 @@ def plotgraph(topics, counts):
 
 def predict(name):
     testdata = [row for row in csv.reader(open(os.path.join(UPLOAD_DIRECTORY, name), "r"))]
-    complaints_test = [classifier.predict(vectorizer.transform([row[0]])) for row in testdata]
-    predicted = []
+    predicted = [classifier.predict(vectorizer.transform([row[0]])) for row in testdata]
+    topics = []
     wordfreq = []
-    for comp in complaints_test:
-        for item in comp:
-            predicted.append(item)
-    for w in predicted:
-        wordfreq.append(predicted.count(w))
-    return [predicted,wordfreq]
+    topiclist = []
+    for prediction in predicted:
+        for topic in prediction:
+            topics.append(topic)
+    pred = Counter(topics)
+    for k, v in pred.items():
+        wordfreq.append(v)
+        topiclist.append(k)
+    return [topiclist,wordfreq]
 
 @app.callback(
     Output("accuracy", "children"),
